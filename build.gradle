@@ -1,0 +1,249 @@
+plugins {
+    id "java"
+    id "maven-publish"
+    id "signing"
+
+    // Apply this Gradle plugin.
+    id "org.embulk.embulk-plugins" version "0.7.0"
+
+    id 'tech.yanand.maven-central-publish' version '1.3.0'
+}
+
+
+repositories {
+    mavenCentral()
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+}
+
+// Set your own group ID. It would typically be:
+// - From your own domain (ex. "com.example"), or
+// - From your GitHub account (ex. "io.github.your-github-user").
+//
+// Note that you should not use "org.embulk" unless the plugin is maintained under: https://github.com/embulk
+group = "io.github.shin1103"
+
+
+// Set the version of the plugin.
+//version = "0.0.1-SNAPSHOT"
+version = "0.0.1"
+
+// Set the description of your plugin.
+description = "An Embulk plugin to load iceberg data."
+
+configurations {
+    // We'd recommend to enable dependency locking so that you are aware of transitive dependencies.
+    // See: https://docs.gradle.org/current/userguide/dependency_locking.html
+    compileClasspath.resolutionStrategy.activateDependencyLocking()
+    runtimeClasspath.resolutionStrategy.activateDependencyLocking()
+}
+
+java {
+    toolchain {
+        // iceberg support Java 11, 17, or 21
+        // https://github.com/apache/iceberg
+        languageVersion = JavaLanguageVersion.of(11)
+    }
+
+    // "javadoc" JAR and "sources" JAR are required to publish the plugin to Maven Central.
+    withJavadocJar()
+    withSourcesJar()
+}
+
+ext {
+    icebergVersion = '1.8.1'
+    hadoopVersion = '3.4.0'
+    jacksonVersion = '2.18.2'
+}
+
+dependencies {
+    // The versioning rule of "embulk-spi" has been independent from Embulk versions since v0.11.
+    // It would be two digits, such as "0.11", "1.0", "1.1", ...
+    // This is the version of Embulk SPI, as a contract between the core and plugins.
+    compileOnly "org.embulk:embulk-spi:0.11"
+
+    // An Embulk plugin should not depend on "embulk-core" if the plugin is ready for Embulk v0.11 and v1.0.
+
+    // An Embulk plugin would usually depend some "embulk-util-*" librarires, for example, "embulk-util-config".
+    // Note that Gradle 7+ needs to declare dependencies by "implementation", not by "compile".
+//     implementation "org.embulk:embulk-util-config:0.5.0"
+    implementation("org.embulk:embulk-util-config:0.5.0") {
+        // They conflict with embulk-core. They are once excluded here,
+        // and added explicitly with versions exactly the same with older embulk-core (until v0.10.31).
+        exclude group: "com.fasterxml.jackson.core", module: "jackson-annotations"
+        exclude group: "com.fasterxml.jackson.core", module: "jackson-core"
+        exclude group: "com.fasterxml.jackson.core", module: "jackson-databind"
+        exclude group: "com.fasterxml.jackson.datatype", module: "jackson-datatype-jdk8"
+        exclude group: "javax.validation", module: "validation-api"
+    }
+
+    implementation "com.fasterxml.jackson.core:jackson-annotations:2.6.7"
+    implementation "com.fasterxml.jackson.core:jackson-core:2.6.7"
+    implementation "com.fasterxml.jackson.core:jackson-databind:2.6.7.5"
+    implementation "com.fasterxml.jackson.datatype:jackson-datatype-jdk8:2.6.7"
+    implementation "javax.validation:validation-api:1.1.0.Final"
+
+    // iceberg
+    implementation("org.apache.iceberg:iceberg-core:$icebergVersion") {
+        exclude group: "com.github.ben-manes.caffeine", module: "caffeine"
+    }
+    implementation "com.github.ben-manes.caffeine:caffeine:3.1.1"
+    implementation "org.apache.iceberg:iceberg-common:$icebergVersion"
+    implementation "org.apache.iceberg:iceberg-parquet:$icebergVersion"
+    implementation "org.apache.iceberg:iceberg-data:$icebergVersion"
+    implementation "org.apache.iceberg:iceberg-flink-1.20:$icebergVersion"
+    implementation "org.apache.iceberg:iceberg-aws:$icebergVersion"
+    implementation "org.apache.iceberg:iceberg-bundled-guava:$icebergVersion"
+    implementation "org.apache.iceberg:iceberg-aws-bundle:$icebergVersion"
+
+    implementation "org.apache.hadoop:hadoop-common:$hadoopVersion"
+    implementation "org.apache.hadoop:hadoop-mapreduce-client-core:$hadoopVersion"
+
+    implementation "org.apache.parquet:parquet-avro:1.15.1"
+
+    testImplementation "junit:junit:4.13.2"
+
+    // The Embulk main packages are often required for testing.
+    testImplementation "org.embulk:embulk-spi:0.11"
+    testImplementation "org.embulk:embulk-core:0.11.5"
+    testImplementation "org.embulk:embulk-deps:0.11.5"
+    testImplementation "org.embulk:embulk-junit4:0.11.5"
+}
+
+embulkPlugin {
+    // Set the plugin's main class.
+    mainClass = "io.github.shin1103.embulk.output.iceberg.IcebergOutputPlugin"
+
+    // Set: "decoder", "encoder", "filter", "formatter", "guess", "input", "output", or "parser"
+    category = "output"
+
+    // Set the "type" of the Embulk plugin used in Embulk's configuration YAML.
+    // For instance, it would be "example" for "embulk-input-example".
+    type = "iceberg"
+}
+
+// It would be a good habit to contain the LICENSE file(s) at "META-INF/" in your plugin packages.
+jar {
+    metaInf {
+        from rootProject.file("LICENSE")
+    }
+}
+sourcesJar {
+    metaInf {
+        from rootProject.file("LICENSE")
+    }
+}
+javadocJar {
+    metaInf {
+        from rootProject.file("LICENSE")
+    }
+}
+
+// The publishing settings are usually required to publish the plugin to Maven Central.
+// Publish it by: "./gradlew publishMavenPublicationToMavenRepository"
+publishing {
+    publications {
+        maven(MavenPublication) {
+            groupId = "io.github.shin1103"
+            artifactId = "embulk-output-iceberg"
+            version = "0.0.1"
+
+            from components.java
+            // javadocJar and sourcesJar are added by java.withJavadocJar() and java.withSourcesJar() above.
+            // See: https://docs.gradle.org/current/javadoc/org/gradle/api/plugins/JavaPluginExtension.html
+
+            // Some pom.xml attributes are mandatory in Maven Central.
+            // See: https://central.sonatype.org/pages/requirements.html
+            pom {
+                packaging "jar"
+
+                name = "embulk-output-iceberg"
+                description = project.description
+                url = "https://github.com/shin1103/embulk-output-iceberg"
+
+                licenses {
+                    license {
+                        // See: http://central.sonatype.org/pages/requirements.html#license-information
+                        name = "MIT License"
+                        url = "https://github.com/shin1103/embulk-output-iceberg/blob/main/LICENSE"
+                        distribution = "repo"
+                    }
+                }
+
+                developers {
+                    developer {
+                        name = "Shinichi Hashiba"
+                        email = "shinichi.hashiba@gmail.com"
+                    }
+                }
+
+                scm {
+                    connection = "scm:git:https://github.com/shin1103/embulk-output-iceberg.git"
+                    developerConnection = "scm:git:https://github.com/shin1103/embulk-output-iceberg.git"
+                    url = "https://github.com/shin1103/embulk-output-iceberg"
+                }
+            }
+        }
+    }
+
+    repositories {
+        maven {
+            name = "local"
+            url = layout.buildDirectory.dir('repos/bundles')
+        }
+    }
+}
+
+mavenCentral {
+    // Starting from version 1.3.0, it does not need to configure this item
+    repoDir = layout.buildDirectory.dir('repos/bundles')
+    // Token for Publisher API calls obtained from Sonatype official,
+    // it should be Base64 encoded of "username:password".
+    authToken = System.getenv("AUTH_TOKEN")
+    // Whether the upload should be automatically published or not. Use 'USER_MANAGED' if you wish to do this manually.
+    // This property is optional and defaults to 'AUTOMATIC'.
+    publishingType = 'AUTOMATIC'
+    // Max wait time for status API to get 'PUBLISHING' or 'PUBLISHED' status when the publishing type is 'AUTOMATIC',
+    // or additionally 'VALIDATED' when the publishing type is 'USER_MANAGED'.
+    // This property is optional and defaults to 60 seconds.
+    maxWait = 60
+}
+
+// The signing settings are usually required to publish the plugin to Maven Central.
+// See: https://central.sonatype.org/publish/requirements/gpg/
+signing {
+    // Just an optional technique to specify a GPG key and password from Gradle properties.
+    //
+    // Set your GPG key into "signingKey" in the ASCII armor format.
+    // Set your GPG key password into "signingPassword".
+    //
+    // It is sometimes useful to publish the plugin to Maven Central from CI like GitHub Actions.
+    if (project.hasProperty("signingKey") && project.hasProperty("signingPassword")) {
+        logger.lifecycle("Signing with an in-memory key.")
+        useInMemoryPgpKeys(signingKey, signingPassword)
+    }
+
+//    useInMemoryPgpKeys(System.getenv("PGP_SIGNING_KEY") , System.getenv("PGP_SIGNING_KEY_PASSPHRASE"))
+//    required { gradle.taskGraph.hasTask("publishMavenJavaPublicationToMavenRepository") }
+    sign publishing.publications.maven
+}
+
+// Enable the following "gem" and "gemPush" tasks if you want to publish your plugin also as a Ruby Gem.
+
+// gem {
+//     authors = [ "..." ]
+//     email = [ "..." ]
+//     // "description" of the Ruby Gem would come from "description" of the Gradle project.
+//     summary = "Example input plugin for Embulk"
+//     homepage = "https://.../"
+//     licenses = [ "..." ]  // See: https://guides.rubygems.org/specification-reference/#license=
+//
+//     from("LICENSE")  // If you want to include LICENSE file(s) in the Ruby Gem package.
+// }
+
+// Push it by: "./gradlew gemPush"
+// gemPush {
+//     host = "https://rubygems.org"
+// }
