@@ -2,14 +2,18 @@ package io.github.shin1103.embulk.output.iceberg;
 
 import io.github.shin1103.embulk.util.ClassLoaderSwap;
 
+import org.apache.iceberg.BaseTable;
+import org.apache.iceberg.FileFormat;
+import org.apache.iceberg.PartitionKey;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.catalog.Catalog;
 import org.apache.iceberg.catalog.Namespace;
 import org.apache.iceberg.catalog.TableIdentifier;
 
+import org.apache.iceberg.data.GenericAppenderFactory;
+import org.apache.iceberg.data.InternalRecordWrapper;
 import org.apache.iceberg.data.Record;
-import org.apache.iceberg.io.CloseableIterable;
-import org.apache.iceberg.types.Types;
+import org.apache.iceberg.io.*;
 import org.embulk.config.ConfigDiff;
 import org.embulk.config.ConfigSource;
 import org.embulk.config.TaskReport;
@@ -18,7 +22,6 @@ import org.embulk.spi.*;
 
 import org.embulk.util.config.*;
 
-import java.io.IOException;
 import java.util.*;
 
 import org.embulk.util.config.modules.ZoneIdModule;
@@ -29,7 +32,12 @@ import org.slf4j.LoggerFactory;
 // https://docs.google.com/document/d/1oKpvgstKlgmgUUja8hYqTqWxtwsgIbONoUaEj8lO0FE/edit?pli=1&tab=t.0
 // https://dev.embulk.org/topics/get-ready-for-v0.11-and-v1.0-updated.html
 
-public class IcebergOutputPlugin implements InputPlugin {
+public class IcebergOutputPlugin implements OutputPlugin {
+
+    public enum Mode {
+        APPEND,
+        DELETE_APPEND
+    }
 
     private static final Logger logger = LoggerFactory.getLogger(IcebergOutputPlugin.class);
 
@@ -118,13 +126,6 @@ public class IcebergOutputPlugin implements InputPlugin {
          */
         Optional<String> getPathStyleAccess();
 
-        @Config("decimal_as_string")
-        @ConfigDefault("false")
-        /*
-          Embulk can't treat Bigdecimal. If you want to treat precise, treat as string.
-         */
-        boolean getDecimalAsString();
-
         @Config("jdbc_driver_path")
         @ConfigDefault("null")
         /*
@@ -153,25 +154,37 @@ public class IcebergOutputPlugin implements InputPlugin {
          */
         Optional<String> getJdbcPass();
 
-        @Config("table_filters")
-        @ConfigDefault("null")
-        Optional<List<IcebergFilterOption>> getTableFilters();
+        @Config("file_format")
+        @ConfigDefault("\"PARQUET\"")
+        /*
+          datafile format
+         */
+        Optional<String> getFileFormat();
 
-        @Config("columns")
-        @ConfigDefault("null")
-        Optional<List<String>> getColumns();
+        @Config("file_size")
+        @ConfigDefault("134217728")
+        /*
+          each datafile size. default value is 128MB
+         */
+        Optional<Long> getFileSize();
+
+        @Config("mode")
+        @ConfigDefault("\"append\"")
+        /*
+          insert mode. "append", "delete_append"
+         */
+        String getMode();
+
     }
 
     @Override
-    public ConfigDiff transaction(ConfigSource configSource, Control control) {
+    public ConfigDiff transaction(ConfigSource configSource, Schema schema, int taskCount, Control control) {
 
         try (ClassLoaderSwap<? extends IcebergOutputPlugin> ignored = new ClassLoaderSwap<>(this.getClass())) {
             final PluginTask task = CONFIG_MAPPER.map(configSource, this.getTaskClass());
 
-            Table table = this.getTable(task);
-
-            Schema schema = this.createEmbulkSchema(table.schema(), task);
-            return resume(task.toTaskSource(), schema, 1, control);
+            control.run(task.toTaskSource());
+            return CONFIG_MAPPER_FACTORY.newConfigDiff();
         }
     }
 
@@ -180,41 +193,14 @@ public class IcebergOutputPlugin implements InputPlugin {
             Catalog catalog = IcebergCatalogFactory.createCatalog(task.getCatalogType(), task);
             Namespace n_space = Namespace.of(task.getNamespace());
             TableIdentifier name = TableIdentifier.of(n_space, task.getTable());
-            Table table = catalog.loadTable(name);
-            logger.debug(table.schemas().toString());
 
-            return table;
+            return catalog.loadTable(name);
         }
-    }
-
-    private Schema createEmbulkSchema(org.apache.iceberg.Schema icebergSchema, PluginTask task){
-        Schema.Builder schemaBuilder = Schema.builder();
-
-        for (Types.NestedField col : icebergSchema.columns()){
-            if (task.getColumns().isPresent()) {
-                if (task.getColumns().get().contains(col.name())) {
-                    // only add column defined columns option in config.yml
-                    schemaBuilder.add(col.name(), TypeConverter.convertIcebergTypeToEmbulkType(col.type(), task));
-                } else {
-                    continue;
-                }
-            } else {
-                // add all columns if columns option is not defined in config.yml
-                schemaBuilder.add(col.name(), TypeConverter.convertIcebergTypeToEmbulkType(col.type(), task));
-            }
-        }
-        return schemaBuilder.build();
     }
 
     @Override
     public ConfigDiff resume(TaskSource taskSource, Schema schema, int taskCount, Control control) {
-        // Thread.currentThread().getContextClassLoader() is used in org.apache.iceberg.common.DynMethods.
-        // If this swap is not executed, classLoader is not work collect.
-        try (ClassLoaderSwap<? extends IcebergOutputPlugin> ignored = new ClassLoaderSwap<>(this.getClass())) {
-            control.run(taskSource, schema, taskCount);
-        }
-
-        return CONFIG_MAPPER_FACTORY.newConfigDiff();
+        throw new UnsupportedOperationException("embulk-output-iceberg does not support resuming");
     }
 
     @Override
@@ -222,29 +208,60 @@ public class IcebergOutputPlugin implements InputPlugin {
     }
 
     @Override
-    public TaskReport run(TaskSource taskSource, Schema schema, int i, PageOutput pageOutput) {
+    public TransactionalPageOutput open(TaskSource taskSource, Schema schema, int taskIndex) {
         final PluginTask task = TASK_MAPPER.map(taskSource, this.getTaskClass());
 
-        BufferAllocator allocator = Exec.getBufferAllocator();
-        try(PageBuilder pageBuilder = Exec.getPageBuilder(allocator, schema, pageOutput)){
-            Table table = this.getTable(task);
-            try(CloseableIterable<Record> scan = IcebergScanBuilder.createBuilder(table, task).build()){
-                for (Record data : scan) {
-                    schema.visitColumns(new IcebergColumnVisitor(data, pageBuilder));
-
-                    pageBuilder.addRecord();
-                }
-            } catch (IOException e) {
-                throw new RuntimeException(e);
-            }
+        try(PageReader reader = Exec.getPageReader(schema)){
+            Table table = getTable(task);
+            return new IcebergTransactionalPageOutput(reader, this.createIcebergWriter(table, taskIndex, task), table, schema, task);
         }
-
-        return CONFIG_MAPPER_FACTORY.newTaskReport();
     }
 
-    @Override
-    public ConfigDiff guess(ConfigSource configSource)
-    {
-        return CONFIG_MAPPER_FACTORY.newConfigDiff();
+    private BaseTaskWriter<Record> createIcebergWriter(Table table, int taskIndex, PluginTask task) {
+
+        long fileSize = task.getFileSize().orElse(134217728L);
+        FileFormat format = FileFormat.valueOf(task.getFileFormat().map(String::toUpperCase).orElse("PARQUET"));
+
+        var appendFactory = new GenericAppenderFactory(table.schema());
+        var outputFileFactory = OutputFileFactory.builderFor(table, this.getCurrentMetadataIndex(table) + 1, taskIndex)
+                .format(format)
+                .build();
+
+        if (table.spec().isPartitioned()){
+            PartitionKey partitionKey = new PartitionKey(table.spec(), table.spec().schema());
+
+            return new PartitionedFanoutWriter<>(table.spec(), format, appendFactory, outputFileFactory,
+                    table.io(), fileSize) {
+                @Override
+                protected PartitionKey partition(Record record) {
+                    // https://github.com/apache/iceberg/issues/11899
+                    var wrapper = new InternalRecordWrapper(table.schema().asStruct());
+                    partitionKey.partition(wrapper.copyFor(record));
+                    return partitionKey;
+                }
+            };
+
+        } else {
+            return new UnpartitionedWriter<>(
+                    table.spec(), format, appendFactory, outputFileFactory, table.io(), fileSize);
+        }
+    }
+
+    /*
+    To put metadata version to datafile version.
+     */
+    private int getCurrentMetadataIndex(Table table) {
+        var metadata = ((BaseTable) table).operations().current();
+        String metadataLocation = metadata.metadataFileLocation();
+        String filename = metadataLocation.substring(metadataLocation.lastIndexOf('/') + 1);
+
+        java.util.regex.Pattern pattern = java.util.regex.Pattern.compile("^(\\d+)-.*\\.metadata\\.json$");
+        java.util.regex.Matcher matcher = pattern.matcher(filename);
+
+        if (matcher.find()) {
+            return Integer.parseInt(matcher.group(1));
+        } else {
+            return 1;
+        }
     }
 }
