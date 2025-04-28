@@ -5,6 +5,7 @@ import org.apache.iceberg.Table;
 import org.apache.iceberg.data.Record;
 import org.apache.iceberg.types.Type;
 import org.apache.iceberg.types.Types;
+import org.apache.iceberg.util.DateTimeUtil;
 import org.embulk.spi.*;
 
 import java.math.BigDecimal;
@@ -41,10 +42,10 @@ public class IcebergColumnVisitor implements ColumnVisitor {
             return;
         }
 
-        var icebergTypeId = this.getIcebergTypeId(column.getName());
+        var icebergTypeId = this.getIcebergType(column.getName());
         var value = reader.getLong(column);
 
-        switch (Objects.requireNonNull(icebergTypeId)) {
+        switch (Objects.requireNonNull(Objects.requireNonNull(icebergTypeId).typeId())) {
             case INTEGER:
                 this.record.setField(column.getName(), (int) value);
                 break;
@@ -61,10 +62,10 @@ public class IcebergColumnVisitor implements ColumnVisitor {
             return;
         }
 
-        var icebergTypeId = this.getIcebergTypeId(column.getName());
+        var icebergTypeId = this.getIcebergType(column.getName());
         var value = reader.getDouble(column);
 
-        switch (Objects.requireNonNull(icebergTypeId)) {
+        switch (Objects.requireNonNull(Objects.requireNonNull(icebergTypeId).typeId())) {
             case DECIMAL:
                 this.record.setField(column.getName(), new BigDecimal(value));
                 break;
@@ -84,11 +85,11 @@ public class IcebergColumnVisitor implements ColumnVisitor {
             return;
         }
 
-        var icebergTypeId = this.getIcebergTypeId(column.getName());
+        var icebergType = this.getIcebergType(column.getName());
 
         var value = reader.getString(column);
 
-        switch (Objects.requireNonNull(icebergTypeId)) {
+        switch (Objects.requireNonNull(Objects.requireNonNull(icebergType).typeId())) {
             case DECIMAL:
                 this.record.setField(column.getName(), new BigDecimal(value));
                 break;
@@ -132,15 +133,20 @@ public class IcebergColumnVisitor implements ColumnVisitor {
             return;
         }
 
-        var icebergTypeId = this.getIcebergTypeId(column.getName());
+        var icebergTypeId = this.getIcebergType(column.getName());
         var value = reader.getTimestampInstant(column);
 
-        switch (Objects.requireNonNull(icebergTypeId)) {
+        switch (Objects.requireNonNull(Objects.requireNonNull(icebergTypeId).typeId())) {
             case DATE:
                 this.record.setField(column.getName(), value.atZone(ZoneId.systemDefault()).toLocalDate());
                 break;
             case TIMESTAMP:
-                this.record.setField(column.getName(), value.atZone(ZoneId.systemDefault()).toLocalDateTime());
+                // InternalRecordWrapper L56
+                if (((Types.TimestampType) icebergTypeId).shouldAdjustToUTC()) {
+                    this.record.setField(column.getName(), value.atZone(ZoneId.systemDefault()).toOffsetDateTime());
+                } else {
+                    this.record.setField(column.getName(), value.atZone(ZoneId.systemDefault()).toLocalDateTime());
+                }
                 break;
             default:
                 this.record.setField(column.getName(), value);
@@ -152,10 +158,10 @@ public class IcebergColumnVisitor implements ColumnVisitor {
         throw new NotImplementedException("JSON Type is not supported");
     }
 
-    private Type.TypeID getIcebergTypeId(String columnName) {
+    private Type getIcebergType(String columnName) {
         for (Types.NestedField col : this.icebergSchema.columns()) {
             if (Objects.equals(col.name(), columnName)) {
-                return col.type().typeId();
+                return col.type();
             }
         }
         return null;
