@@ -9,7 +9,9 @@ import org.apache.iceberg.util.DateTimeUtil;
 import org.embulk.spi.*;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.*;
+import java.time.format.DateTimeFormatter;
 import java.util.Objects;
 import java.util.UUID;
 
@@ -67,7 +69,9 @@ public class IcebergColumnVisitor implements ColumnVisitor {
 
         switch (Objects.requireNonNull(Objects.requireNonNull(icebergTypeId).typeId())) {
             case DECIMAL:
-                this.record.setField(column.getName(), new BigDecimal(value));
+                // iceberg Java API accept only decimal(38, 10)
+                BigDecimal d = new BigDecimal(value);
+                this.record.setField(column.getName(), d.setScale(10, RoundingMode.HALF_UP));
                 break;
             case FLOAT:
                 this.record.setField(column.getName(), (float) value);
@@ -91,10 +95,12 @@ public class IcebergColumnVisitor implements ColumnVisitor {
 
         switch (Objects.requireNonNull(Objects.requireNonNull(icebergType).typeId())) {
             case DECIMAL:
-                this.record.setField(column.getName(), new BigDecimal(value));
+                // iceberg Java API accept only decimal(38, 10)
+                BigDecimal d = new BigDecimal(value);
+                this.record.setField(column.getName(), d.setScale(10, RoundingMode.HALF_UP));
                 break;
             case TIME:
-                this.record.setField(column.getName(), OffsetTime.parse(value));
+                this.record.setField(column.getName(), this.getTime(value));
                 break;
             case UUID:
                 this.record.setField(column.getName(), UUID.fromString(value));
@@ -162,6 +168,23 @@ public class IcebergColumnVisitor implements ColumnVisitor {
         for (Types.NestedField col : this.icebergSchema.columns()) {
             if (Objects.equals(col.name(), columnName)) {
                 return col.type();
+            }
+        }
+        return null;
+    }
+
+    private LocalTime getTime(String timeString) {
+        // iceberg Java API treat only LocalTime
+        try {
+            DateTimeFormatter offsetFormatter = DateTimeFormatter.ofPattern("HH:mm:ss.SSSSSSXXX");
+            OffsetTime offsetTime = OffsetTime.parse(timeString, offsetFormatter);
+            return offsetTime.toLocalTime();
+        } catch (Exception e) {
+            try {
+                DateTimeFormatter localFormatter = DateTimeFormatter.ofPattern("HH:mm:ss.SSSSSS");
+                return LocalTime.parse(timeString, localFormatter);
+            } catch (Exception ex) {
+                System.out.println("Can't parse time string " + timeString);
             }
         }
         return null;
