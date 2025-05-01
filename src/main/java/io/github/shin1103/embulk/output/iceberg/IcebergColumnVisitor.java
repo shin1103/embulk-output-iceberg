@@ -5,7 +5,6 @@ import org.apache.iceberg.Table;
 import org.apache.iceberg.data.Record;
 import org.apache.iceberg.types.Type;
 import org.apache.iceberg.types.Types;
-import org.apache.iceberg.util.DateTimeUtil;
 import org.embulk.spi.*;
 
 import java.math.BigDecimal;
@@ -69,9 +68,9 @@ public class IcebergColumnVisitor implements ColumnVisitor {
 
         switch (Objects.requireNonNull(Objects.requireNonNull(icebergTypeId).typeId())) {
             case DECIMAL:
-                // iceberg Java API accept only decimal(38, 10)
+                // iceberg Java API accept same scale only
                 BigDecimal d = new BigDecimal(value);
-                this.record.setField(column.getName(), d.setScale(10, RoundingMode.HALF_UP));
+                this.record.setField(column.getName(), d.setScale(((Types.DecimalType)icebergTypeId).scale(), RoundingMode.HALF_UP));
                 break;
             case FLOAT:
                 this.record.setField(column.getName(), (float) value);
@@ -89,15 +88,15 @@ public class IcebergColumnVisitor implements ColumnVisitor {
             return;
         }
 
-        var icebergType = this.getIcebergType(column.getName());
+        var icebergTypeId = this.getIcebergType(column.getName());
 
         var value = reader.getString(column);
 
-        switch (Objects.requireNonNull(Objects.requireNonNull(icebergType).typeId())) {
+        switch (Objects.requireNonNull(Objects.requireNonNull(icebergTypeId).typeId())) {
             case DECIMAL:
-                // iceberg Java API accept only decimal(38, 10)
+                // iceberg Java API accept same scale only
                 BigDecimal d = new BigDecimal(value);
-                this.record.setField(column.getName(), d.setScale(10, RoundingMode.HALF_UP));
+                this.record.setField(column.getName(), d.setScale(((Types.DecimalType) icebergTypeId).scale(), RoundingMode.HALF_UP));
                 break;
             case TIME:
                 this.record.setField(column.getName(), this.getTime(value));
