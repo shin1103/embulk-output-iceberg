@@ -15,10 +15,10 @@ Java 11. iceberg API support Java 11 above. (Despite Embulk official support is 
 Now Only support REST Catalog with MinIO Storage, Glue Catalog and JDBC Catalog.
 
 ### Embulk Configuration
-- **catalog_name** catalog name. if jdbc need to set collect catalog name. (string, optional)
+- **catalog_name** catalog name. if jdbc need to set correct catalog name. (string, optional)
 - **namespace** catalog namespace name. if glue set glue database. (string, required)
 - **table** catalog table name (string, required)
-- **catalog_type** catalog type. use "REST" (string, required)
+- **catalog_type** catalog type. "REST", "JDBC", "GLUE" is available. (string, required)
 - **uri** catalog uri. if "REST" use http URI scheme. if "JDBC" use JDBC driver URI.  (string, required)
 - **warehouse_location** warehouse to save data. if use S3, URI scheme.  (string, required)
 - **file_io_impl** implementation of file io.  (string, required)
@@ -120,7 +120,6 @@ Types are different from [iceberg](https://iceberg.apache.org/spec/#primitive-ty
 So some iceberg type isn't supported.
 
 Unsupported Iceberg Types
-- UUID
 - FIXED
 - BINARY
 - STRUCT
