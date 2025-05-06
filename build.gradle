@@ -2,6 +2,7 @@ plugins {
     id "java"
     id "maven-publish"
     id "signing"
+    id "checkstyle"
 
     // Apply this Gradle plugin.
     id "org.embulk.embulk-plugins" version "0.7.0"
@@ -244,18 +245,20 @@ checkstyleTest {
 
 // Enable the following "gem" and "gemPush" tasks if you want to publish your plugin also as a Ruby Gem.
 
-// gem {
-//     authors = [ "..." ]
-//     email = [ "..." ]
-//     // "description" of the Ruby Gem would come from "description" of the Gradle project.
-//     summary = "Example input plugin for Embulk"
-//     homepage = "https://.../"
-//     licenses = [ "..." ]  // See: https://guides.rubygems.org/specification-reference/#license=
-//
-//     from("LICENSE")  // If you want to include LICENSE file(s) in the Ruby Gem package.
-// }
+// Enable the following "gem" and "gemPush" tasks if you want to publish your plugin also as a Ruby Gem.
+
+gem {
+    authors = [ "Shinichi Hashiba" ]
+    email = [ "shinichi.hashiba@gmail.com" ]
+    // "description" of the Ruby Gem would come from "description" of the Gradle project.
+    summary = "iceberg output plugin for Embulk"
+    homepage = "https://github.com/shin1103/embulk-output-iceberg"
+    licenses = [ "MIT" ]  // See: https://guides.rubygems.org/specification-reference/#license=
+
+//     from("")  // If you want to include LICENSE file(s) in the Ruby Gem package.
+}
 
 // Push it by: "./gradlew gemPush"
-// gemPush {
-//     host = "https://rubygems.org"
-// }
+gemPush {
+    host = "https://rubygems.org"
+}
