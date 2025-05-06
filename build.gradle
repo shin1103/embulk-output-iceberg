@@ -144,12 +144,12 @@ javadocJar {
 // Publish it by: "./gradlew publishMavenPublicationToMavenRepository"
 publishing {
     publications {
-        maven(MavenPublication) {
+        create('maven', MavenPublication)  {
             groupId = "io.github.shin1103"
             artifactId = "embulk-output-iceberg"
             version = "0.2.0"
 
-            from components.java
+            from ((SoftwareComponent) components.java)
             // javadocJar and sourcesJar are added by java.withJavadocJar() and java.withSourcesJar() above.
             // See: https://docs.gradle.org/current/javadoc/org/gradle/api/plugins/JavaPluginExtension.html
 
@@ -221,7 +221,7 @@ signing {
     // It is sometimes useful to publish the plugin to Maven Central from CI like GitHub Actions.
     if (project.hasProperty("signingKey") && project.hasProperty("signingPassword")) {
         logger.lifecycle("Signing with an in-memory key.")
-        useInMemoryPgpKeys(signingKey, signingPassword)
+        useInMemoryPgpKeys((String)signingKey, (String)signingPassword)
     }
 
 //    useInMemoryPgpKeys(System.getenv("PGP_SIGNING_KEY") , System.getenv("PGP_SIGNING_KEY_PASSPHRASE"))
