@@ -17,7 +17,8 @@ import org.embulk.util.config.modules.ZoneIdModule;
 
 import java.io.IOException;
 
-class IcebergTransactionalPageOutput implements TransactionalPageOutput {
+class IcebergTransactionalPageOutput implements TransactionalPageOutput
+{
     private final PageReader reader;
     private final BaseTaskWriter<Record> writer;
     private final Table table;
@@ -27,15 +28,18 @@ class IcebergTransactionalPageOutput implements TransactionalPageOutput {
     protected static final ConfigMapperFactory CONFIG_MAPPER_FACTORY =
             ConfigMapperFactory.builder().addDefaultModules().addModule(ZoneIdModule.withLegacyNames()).build();
 
-    public IcebergTransactionalPageOutput(PageReader reader, BaseTaskWriter<Record> writer, Table table, Schema embulkSchema, IcebergOutputPlugin.PluginTask task) {
+    public IcebergTransactionalPageOutput(PageReader reader, BaseTaskWriter<Record> writer, Table table, Schema embulkSchema, IcebergOutputPlugin.PluginTask task)
+    {
         this.reader = reader;
         this.writer = writer;
         this.table = table;
         this.embulkSchema = embulkSchema;
         this.coordinator = IcebergTransactionCoordinator.createIcebergTransactionCoodinator(this.table, task);
     }
+
     @Override
-    public void add(Page page) {
+    public void add(Page page)
+    {
         reader.setPage(page);
         while (reader.nextRecord()) {
             Record record = GenericRecord.create(table.schema());
@@ -43,14 +47,16 @@ class IcebergTransactionalPageOutput implements TransactionalPageOutput {
             embulkSchema.visitColumns(visitor);
             try {
                 this.writer.write(record);
-            } catch (IOException e) {
+            }
+            catch (IOException e) {
                 throw new RuntimeException(e);
             }
         }
     }
 
     @Override
-    public void finish() {
+    public void finish()
+    {
         if (this.writer == null) {
             return;
         }
@@ -59,21 +65,24 @@ class IcebergTransactionalPageOutput implements TransactionalPageOutput {
             WriteResult result = writer.complete();
 
             AppendFiles appender = this.coordinator.getTransaction().newAppend();
-            for (DataFile datafile : result.dataFiles()){
+            for (DataFile datafile : result.dataFiles()) {
                 appender.appendFile(datafile);
             }
             appender.commit();
-        } catch (IOException e) {
+        }
+        catch (IOException e) {
             throw new RuntimeException(e);
         }
     }
 
     @Override
-    public void close() {
+    public void close()
+    {
         if (writer != null) {
             try {
                 writer.close();
-            } catch (IOException e) {
+            }
+            catch (IOException e) {
                 throw new RuntimeException(e);
             }
         }
@@ -85,18 +94,21 @@ class IcebergTransactionalPageOutput implements TransactionalPageOutput {
         if (this.coordinator != null) {
             try {
                 this.coordinator.close();
-            } catch (Exception e) {
+            }
+            catch (Exception e) {
                 throw new RuntimeException(e);
             }
         }
     }
 
     @Override
-    public void abort() {
+    public void abort()
+    {
         if (writer != null) {
             try {
                 writer.close();
-            } catch (IOException e) {
+            }
+            catch (IOException e) {
                 throw new RuntimeException(e);
             }
         }
@@ -107,7 +119,8 @@ class IcebergTransactionalPageOutput implements TransactionalPageOutput {
     }
 
     @Override
-    public TaskReport commit() {
+    public TaskReport commit()
+    {
         return CONFIG_MAPPER_FACTORY.newTaskReport();
     }
 }

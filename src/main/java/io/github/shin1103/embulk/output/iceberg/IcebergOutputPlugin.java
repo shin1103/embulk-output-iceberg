@@ -32,9 +32,11 @@ import org.slf4j.LoggerFactory;
 // https://docs.google.com/document/d/1oKpvgstKlgmgUUja8hYqTqWxtwsgIbONoUaEj8lO0FE/edit?pli=1&tab=t.0
 // https://dev.embulk.org/topics/get-ready-for-v0.11-and-v1.0-updated.html
 
-public class IcebergOutputPlugin implements OutputPlugin {
+public class IcebergOutputPlugin implements OutputPlugin
+{
 
-    public enum Mode {
+    public enum Mode
+    {
         APPEND,
         DELETE_APPEND
     }
@@ -82,7 +84,6 @@ public class IcebergOutputPlugin implements OutputPlugin {
          */
         String getCatalogType();
 
-
         @Config("uri")
         @ConfigDefault("null")
         /*
@@ -121,8 +122,8 @@ public class IcebergOutputPlugin implements OutputPlugin {
         @Config("path_style_access")
         @ConfigDefault("true")
         /*
-          use path_style_access.
-          If you use Example settings, actual path is "http://localhost:9000/warehouse/".
+          Use path_style_access.
+          If you use Example settings, the actual path is "http://localhost:9000/warehouse/".
          */
         Optional<String> getPathStyleAccess();
 
@@ -178,7 +179,8 @@ public class IcebergOutputPlugin implements OutputPlugin {
     }
 
     @Override
-    public ConfigDiff transaction(ConfigSource configSource, Schema schema, int taskCount, Control control) {
+    public ConfigDiff transaction(ConfigSource configSource, Schema schema, int taskCount, Control control)
+    {
 
         try (ClassLoaderSwap<? extends IcebergOutputPlugin> ignored = new ClassLoaderSwap<>(this.getClass())) {
             final PluginTask task = CONFIG_MAPPER.map(configSource, this.getTaskClass());
@@ -188,36 +190,41 @@ public class IcebergOutputPlugin implements OutputPlugin {
         }
     }
 
-    private Table getTable(PluginTask task) {
-        try(JdbcDriverMangerLoaderSwap ignored = new JdbcDriverMangerLoaderSwap(task)){
+    private Table getTable(PluginTask task)
+    {
+        try (JdbcDriverMangerLoaderSwap ignored = new JdbcDriverMangerLoaderSwap(task)) {
             Catalog catalog = IcebergCatalogFactory.createCatalog(task.getCatalogType(), task);
-            Namespace n_space = Namespace.of(task.getNamespace());
-            TableIdentifier name = TableIdentifier.of(n_space, task.getTable());
+            Namespace namespace = Namespace.of(task.getNamespace());
+            TableIdentifier name = TableIdentifier.of(namespace, task.getTable());
 
             return catalog.loadTable(name);
         }
     }
 
     @Override
-    public ConfigDiff resume(TaskSource taskSource, Schema schema, int taskCount, Control control) {
+    public ConfigDiff resume(TaskSource taskSource, Schema schema, int taskCount, Control control)
+    {
         throw new UnsupportedOperationException("embulk-output-iceberg does not support resuming");
     }
 
     @Override
-    public void cleanup(TaskSource taskSource, Schema schema, int i, List<TaskReport> list) {
+    public void cleanup(TaskSource taskSource, Schema schema, int i, List<TaskReport> list)
+    {
     }
 
     @Override
-    public TransactionalPageOutput open(TaskSource taskSource, Schema schema, int taskIndex) {
+    public TransactionalPageOutput open(TaskSource taskSource, Schema schema, int taskIndex)
+    {
         final PluginTask task = TASK_MAPPER.map(taskSource, this.getTaskClass());
 
-        try(PageReader reader = Exec.getPageReader(schema)){
+        try (PageReader reader = Exec.getPageReader(schema)) {
             Table table = getTable(task);
             return new IcebergTransactionalPageOutput(reader, this.createIcebergWriter(table, taskIndex, task), table, schema, task);
         }
     }
 
-    private BaseTaskWriter<Record> createIcebergWriter(Table table, int taskIndex, PluginTask task) {
+    private BaseTaskWriter<Record> createIcebergWriter(Table table, int taskIndex, PluginTask task)
+    {
 
         long fileSize = task.getFileSize().orElse(134217728L);
         FileFormat format = FileFormat.valueOf(task.getFileFormat().map(String::toUpperCase).orElse("PARQUET"));
@@ -227,13 +234,15 @@ public class IcebergOutputPlugin implements OutputPlugin {
                 .format(format)
                 .build();
 
-        if (table.spec().isPartitioned()){
+        if (table.spec().isPartitioned()) {
             PartitionKey partitionKey = new PartitionKey(table.spec(), table.spec().schema());
 
             return new PartitionedFanoutWriter<>(table.spec(), format, appendFactory, outputFileFactory,
-                    table.io(), fileSize) {
+                    table.io(), fileSize)
+            {
                 @Override
-                protected PartitionKey partition(Record record) {
+                protected PartitionKey partition(Record record)
+                {
                     // https://github.com/apache/iceberg/issues/11899
                     var wrapper = new InternalRecordWrapper(table.schema().asStruct());
                     partitionKey.partition(wrapper.copyFor(record));
@@ -241,7 +250,8 @@ public class IcebergOutputPlugin implements OutputPlugin {
                 }
             };
 
-        } else {
+        }
+        else {
             return new UnpartitionedWriter<>(
                     table.spec(), format, appendFactory, outputFileFactory, table.io(), fileSize);
         }
@@ -250,7 +260,8 @@ public class IcebergOutputPlugin implements OutputPlugin {
     /*
     To put metadata version to datafile version.
      */
-    private int getCurrentMetadataIndex(Table table) {
+    private int getCurrentMetadataIndex(Table table)
+    {
         var metadata = ((BaseTable) table).operations().current();
         String metadataLocation = metadata.metadataFileLocation();
         String filename = metadataLocation.substring(metadataLocation.lastIndexOf('/') + 1);
@@ -260,7 +271,8 @@ public class IcebergOutputPlugin implements OutputPlugin {
 
         if (matcher.find()) {
             return Integer.parseInt(matcher.group(1));
-        } else {
+        }
+        else {
             return 1;
         }
     }

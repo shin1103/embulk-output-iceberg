@@ -16,12 +16,14 @@ import java.util.Objects;
 /*
 Load JDBC driver to DriverManager
  */
-public class JdbcDriverMangerLoaderSwap implements AutoCloseable{
+public class JdbcDriverMangerLoaderSwap implements AutoCloseable
+{
 
     private final URLClassLoader classLoader;
+
     public JdbcDriverMangerLoaderSwap(IcebergOutputPlugin.PluginTask task)
     {
-        if (IcebergCatalogFactory.CatalogType.valueOf(task.getCatalogType().toUpperCase()) != IcebergCatalogFactory.CatalogType.JDBC){
+        if (IcebergCatalogFactory.CatalogType.valueOf(task.getCatalogType().toUpperCase()) != IcebergCatalogFactory.CatalogType.JDBC) {
             this.classLoader = null;
             return;
         }
@@ -34,28 +36,30 @@ public class JdbcDriverMangerLoaderSwap implements AutoCloseable{
             }
             this.classLoader = new URLClassLoader(new URL[]{url}, IcebergOutputPlugin.class.getClassLoader());
 
-
             Class<?> driverClass = null;
 
-            if (task.getJdbcDriverClassName().isPresent()){
+            if (task.getJdbcDriverClassName().isPresent()) {
                 driverClass = Class.forName(task.getJdbcDriverClassName().get(), true, classLoader);
             }
 
             Driver driver = (Driver) Objects.requireNonNull(driverClass).getDeclaredConstructor().newInstance();
             DriverManager.registerDriver(new DriverShim(driver));
-        } catch (MalformedURLException | SQLException | ClassNotFoundException | InvocationTargetException |
+        }
+        catch (MalformedURLException | SQLException | ClassNotFoundException | InvocationTargetException |
                  InstantiationException | IllegalAccessException | NoSuchMethodException e) {
             throw new RuntimeException(e);
         }
     }
 
     @Override
-    public void close() {
+    public void close()
+    {
         try {
-            if(this.classLoader != null) {
+            if (this.classLoader != null) {
                 this.classLoader.close();
             }
-        } catch (IOException e) {
+        }
+        catch (IOException e) {
             throw new RuntimeException(e);
         }
     }

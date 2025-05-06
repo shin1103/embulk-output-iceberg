@@ -1,24 +1,23 @@
 package io.github.shin1103.embulk.output.iceberg;
 
-import org.apache.iceberg.DeleteFile;
-import org.apache.iceberg.DeleteFiles;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.Transaction;
 import org.apache.iceberg.expressions.Expressions;
 
-import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /*
  The processing of each thread of "embulk" is consolidated into one "iceberg" transaction.
  */
-public class IcebergTransactionCoordinator implements AutoCloseable {
-    private static final AtomicInteger count = new AtomicInteger(0);;
+public class IcebergTransactionCoordinator implements AutoCloseable
+{
+    private static final AtomicInteger count = new AtomicInteger(0);
     private static volatile Table table;
     private static volatile IcebergTransactionCoordinator instance;
     private static Transaction transaction;
 
-    public static IcebergTransactionCoordinator createIcebergTransactionCoodinator(Table argTable, IcebergOutputPlugin.PluginTask task) {
+    public static IcebergTransactionCoordinator createIcebergTransactionCoodinator(Table argTable, IcebergOutputPlugin.PluginTask task)
+    {
         if (instance == null) {
             synchronized (IcebergTransactionCoordinator.class) {
                 if (instance == null) {
@@ -34,7 +33,7 @@ public class IcebergTransactionCoordinator implements AutoCloseable {
                 }
             }
 
-            if (IcebergOutputPlugin.Mode.valueOf(task.getMode().toUpperCase()) == IcebergOutputPlugin.Mode.DELETE_APPEND ) {
+            if (IcebergOutputPlugin.Mode.valueOf(task.getMode().toUpperCase()) == IcebergOutputPlugin.Mode.DELETE_APPEND) {
                 transaction.newDelete().deleteFromRowFilter(Expressions.alwaysTrue()).commit();
             }
         }
@@ -43,19 +42,20 @@ public class IcebergTransactionCoordinator implements AutoCloseable {
         return instance;
     }
 
-    private IcebergTransactionCoordinator() {
-    }
+    private IcebergTransactionCoordinator() {}
 
     @Override
-    public void close() throws Exception {
+    public void close()
+    {
         count.decrementAndGet();
 
         if (count.get() == 0) {
-            transaction.commitTransaction();;
+            transaction.commitTransaction();
         }
     }
 
-    public Transaction getTransaction() {
+    public Transaction getTransaction()
+    {
         return transaction;
     }
 }

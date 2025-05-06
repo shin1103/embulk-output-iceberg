@@ -14,19 +14,22 @@ import java.time.format.DateTimeFormatter;
 import java.util.Objects;
 import java.util.UUID;
 
-public class IcebergColumnVisitor implements ColumnVisitor {
+public class IcebergColumnVisitor implements ColumnVisitor
+{
 
     private final PageReader reader;
     private final org.apache.iceberg.Schema icebergSchema;
     private final Record record;
 
-    public IcebergColumnVisitor(PageReader reader, Table table, Record record){
+    public IcebergColumnVisitor(PageReader reader, Table table, Record record)
+    {
         this.reader = reader;
         this.icebergSchema = table.schema();
         this.record = record;
     }
 
-    public void booleanColumn(Column column) {
+    public void booleanColumn(Column column)
+    {
         if (reader.isNull(column)) {
             this.record.setField(column.getName(), null);
             return;
@@ -37,7 +40,8 @@ public class IcebergColumnVisitor implements ColumnVisitor {
         this.record.setField(column.getName(), value);
     }
 
-    public void longColumn(Column column) {
+    public void longColumn(Column column)
+    {
         if (reader.isNull(column)) {
             this.record.setField(column.getName(), null);
             return;
@@ -57,7 +61,8 @@ public class IcebergColumnVisitor implements ColumnVisitor {
         }
     }
 
-    public void doubleColumn(Column column) {
+    public void doubleColumn(Column column)
+    {
         if (reader.isNull(column)) {
             this.record.setField(column.getName(), null);
             return;
@@ -70,7 +75,7 @@ public class IcebergColumnVisitor implements ColumnVisitor {
             case DECIMAL:
                 // iceberg Java API accept same scale only
                 BigDecimal d = new BigDecimal(value);
-                this.record.setField(column.getName(), d.setScale(((Types.DecimalType)icebergTypeId).scale(), RoundingMode.HALF_UP));
+                this.record.setField(column.getName(), d.setScale(((Types.DecimalType) icebergTypeId).scale(), RoundingMode.HALF_UP));
                 break;
             case FLOAT:
                 this.record.setField(column.getName(), (float) value);
@@ -82,7 +87,8 @@ public class IcebergColumnVisitor implements ColumnVisitor {
         }
     }
 
-    public void stringColumn(Column column) {
+    public void stringColumn(Column column)
+    {
         if (reader.isNull(column)) {
             this.record.setField(column.getName(), null);
             return;
@@ -132,7 +138,8 @@ public class IcebergColumnVisitor implements ColumnVisitor {
         }
     }
 
-    public void timestampColumn(Column column) {
+    public void timestampColumn(Column column)
+    {
         if (reader.isNull(column)) {
             this.record.setField(column.getName(), null);
             return;
@@ -149,7 +156,8 @@ public class IcebergColumnVisitor implements ColumnVisitor {
                 // InternalRecordWrapper L56
                 if (((Types.TimestampType) icebergTypeId).shouldAdjustToUTC()) {
                     this.record.setField(column.getName(), value.atZone(ZoneId.systemDefault()).toOffsetDateTime());
-                } else {
+                }
+                else {
                     this.record.setField(column.getName(), value.atZone(ZoneId.systemDefault()).toLocalDateTime());
                 }
                 break;
@@ -159,11 +167,13 @@ public class IcebergColumnVisitor implements ColumnVisitor {
         }
     }
 
-    public void jsonColumn(Column column) {
+    public void jsonColumn(Column column)
+    {
         throw new NotImplementedException("JSON Type is not supported");
     }
 
-    private Type getIcebergType(String columnName) {
+    private Type getIcebergType(String columnName)
+    {
         for (Types.NestedField col : this.icebergSchema.columns()) {
             if (Objects.equals(col.name(), columnName)) {
                 return col.type();
@@ -172,17 +182,20 @@ public class IcebergColumnVisitor implements ColumnVisitor {
         return null;
     }
 
-    private LocalTime getTime(String timeString) {
+    private LocalTime getTime(String timeString)
+    {
         // iceberg Java API treat only LocalTime
         try {
             DateTimeFormatter offsetFormatter = DateTimeFormatter.ofPattern("HH:mm:ss.SSSSSSXXX");
             OffsetTime offsetTime = OffsetTime.parse(timeString, offsetFormatter);
             return offsetTime.toLocalTime();
-        } catch (Exception e) {
+        }
+        catch (Exception e) {
             try {
                 DateTimeFormatter localFormatter = DateTimeFormatter.ofPattern("HH:mm:ss.SSSSSS");
                 return LocalTime.parse(timeString, localFormatter);
-            } catch (Exception ex) {
+            }
+            catch (Exception ex) {
                 System.out.println("Can't parse time string " + timeString);
             }
         }
