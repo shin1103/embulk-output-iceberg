@@ -142,3 +142,23 @@ Unsupported Iceberg Types
 - TIMESTAMP_NS
 - TIMESTAMPTZ_NS
 - GEOMETRY
+
+## Release
+Releases are automated by GitHub Actions (`.github/workflows/release.yml`).
+
+1. Bump `version` in `build.gradle` and merge it into `main`.
+2. Push a tag that matches the version, e.g. `git tag v0.3.0 && git push origin v0.3.0`.
+
+The workflow builds and signs the artifacts, publishes them to Maven Central through the
+Sonatype Central Portal, pushes the gem to RubyGems, and creates a GitHub release.
+It can also be started manually from the Actions tab, where `dry_run` (enabled by default)
+builds and signs the artifacts without publishing anything.
+
+The following repository secrets are required:
+
+| secret | description |
+|--------|-------------|
+| `MAVEN_CENTRAL_AUTH_TOKEN` | Base64 of `username:password` of the Sonatype Central Portal user token |
+| `PGP_SIGNING_KEY` | GPG private key in the ASCII armor format |
+| `PGP_SIGNING_KEY_PASSPHRASE` | Passphrase of the GPG private key |
+| `RUBYGEMS_API_KEY` | RubyGems API key with the `push_rubygem` scope |
