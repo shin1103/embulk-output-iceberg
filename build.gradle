@@ -150,7 +150,7 @@ publishing {
         create('maven', MavenPublication)  {
             groupId = "io.github.shin1103"
             artifactId = "embulk-output-iceberg"
-            version = "0.3.0"
+            version = project.version.toString()
 
             from ((SoftwareComponent) components.java)
             // javadocJar and sourcesJar are added by java.withJavadocJar() and java.withSourcesJar() above.
