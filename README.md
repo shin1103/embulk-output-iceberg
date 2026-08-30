@@ -59,7 +59,7 @@ out:
     source: maven
     group: io.github.shin1103 
     name: iceberg 
-    version: 0.3.0
+    version: 0.3.1
   catalog_name: "pg-iceberg"
   namespace: "taxi"
   table: "taxi_dataset_copy"
@@ -83,7 +83,7 @@ out:
     source: maven
     group: io.github.shin1103
     name: iceberg
-    version: 0.3.0
+    version: 0.3.1
   catalog_name: "pg-iceberg"
   namespace: "taxi"
   table: "taxi_dataset_copy"
@@ -108,7 +108,7 @@ out:
     source: maven
     group: io.github.shin1103
     name: iceberg
-    version: 0.3.0
+    version: 0.3.1
   catalog_name: "pg-iceberg"
   namespace: "taxi"
   table: "taxi_dataset_copy"

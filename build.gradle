@@ -28,7 +28,7 @@ group = "io.github.shin1103"
 
 
 // Set the version of the plugin.
-version = "0.3.0"
+version = "0.3.1"
 
 // Set the description of your plugin.
 description = "An Embulk plugin to load iceberg data."
