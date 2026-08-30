@@ -152,7 +152,8 @@ Releases are automated by GitHub Actions (`.github/workflows/release.yml`).
 The workflow builds and signs the artifacts, publishes them to Maven Central through the
 Sonatype Central Portal, pushes the gem to RubyGems, and creates a GitHub release.
 It can also be started manually from the Actions tab, where `dry_run` (enabled by default)
-builds and signs the artifacts without publishing anything.
+builds and signs the artifacts without publishing anything, and `publish_maven_central` /
+`publish_rubygems` allow releasing to only one of the two registries.
 
 The following repository secrets are required:
 
@@ -161,4 +162,8 @@ The following repository secrets are required:
 | `MAVEN_CENTRAL_AUTH_TOKEN` | Base64 of `username:password` of the Sonatype Central Portal user token |
 | `PGP_SIGNING_KEY` | GPG private key in the ASCII armor format |
 | `PGP_SIGNING_KEY_PASSPHRASE` | Passphrase of the GPG private key |
-| `RUBYGEMS_API_KEY` | RubyGems API key with the `push_rubygem` scope |
+
+RubyGems needs no secret: the gem is pushed through
+[trusted publishing](https://guides.rubygems.org/trusted-publishing/), which has to be
+registered once on the gem's "Trusted publishers" page with this repository and
+`release.yml` as the workflow (leave the environment empty).
