@@ -4,7 +4,17 @@ embulk-output-iceberg is the Embulk output plugin for Apache Iceberg.
 
 ## Overview
 Required Embulk version >= 0.11.5.  
-Java 11. iceberg API support Java 11 above. (Despite Embulk official support is Java 8)
+Java 17 or above. (Despite Embulk official support is Java 8)
+
+### Java / Iceberg compatibility
+This plugin uses Apache Iceberg 1.11.0, whose jars are compiled for Java 17, so Embulk must run on Java 17 or above.
+
+| plugin version | Iceberg | required Java |
+|----------------|---------|---------------|
+| 0.3.0 or later | 1.11.0  | 17 or above   |
+| 0.2.0          | 1.8.1   | 11 or above   |
+
+If you need to keep running Embulk on Java 11, use plugin version 0.2.0. Iceberg 1.10.2 is the last release that supports Java 11.
 
 * **Plugin type**: output
 * **Resume supported**: no
@@ -49,7 +59,7 @@ out:
     source: maven
     group: io.github.shin1103 
     name: iceberg 
-    version: 0.2.0
+    version: 0.3.0
   catalog_name: "pg-iceberg"
   namespace: "taxi"
   table: "taxi_dataset_copy"
@@ -73,7 +83,7 @@ out:
     source: maven
     group: io.github.shin1103
     name: iceberg
-    version: 0.2.0
+    version: 0.3.0
   catalog_name: "pg-iceberg"
   namespace: "taxi"
   table: "taxi_dataset_copy"
@@ -98,7 +108,7 @@ out:
     source: maven
     group: io.github.shin1103
     name: iceberg
-    version: 0.2.0
+    version: 0.3.0
   catalog_name: "pg-iceberg"
   namespace: "taxi"
   table: "taxi_dataset_copy"

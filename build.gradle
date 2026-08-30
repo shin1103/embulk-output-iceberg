@@ -28,7 +28,7 @@ group = "io.github.shin1103"
 
 
 // Set the version of the plugin.
-version = "0.2.0"
+version = "0.3.0"
 
 // Set the description of your plugin.
 description = "An Embulk plugin to load iceberg data."
@@ -42,9 +42,9 @@ configurations {
 
 java {
     toolchain {
-        // iceberg support Java 11, 17, or 21
+        // iceberg 1.11 supports Java 17 or 21
         // https://github.com/apache/iceberg
-        languageVersion = JavaLanguageVersion.of(11)
+        languageVersion = JavaLanguageVersion.of(17)
     }
 
     // "javadoc" JAR and "sources" JAR are required to publish the plugin to Maven Central.
@@ -53,8 +53,8 @@ java {
 }
 
 ext {
-    icebergVersion = '1.8.1'
-    hadoopVersion = '3.4.0'
+    icebergVersion = '1.11.0'
+    hadoopVersion = '3.4.3'
     jacksonVersion = '2.18.2'
 }
 
@@ -92,8 +92,10 @@ dependencies {
     implementation "com.github.ben-manes.caffeine:caffeine:3.1.1"
     implementation "org.apache.iceberg:iceberg-common:$icebergVersion"
     implementation "org.apache.iceberg:iceberg-parquet:$icebergVersion"
+    // iceberg-data 1.11 registers Avro, Parquet and ORC format models eagerly,
+    // so iceberg-orc must be on the runtime classpath even though only Parquet is written.
+    implementation "org.apache.iceberg:iceberg-orc:$icebergVersion"
     implementation "org.apache.iceberg:iceberg-data:$icebergVersion"
-    implementation "org.apache.iceberg:iceberg-flink-1.20:$icebergVersion"
     implementation "org.apache.iceberg:iceberg-aws:$icebergVersion"
     implementation "org.apache.iceberg:iceberg-bundled-guava:$icebergVersion"
     implementation "org.apache.iceberg:iceberg-aws-bundle:$icebergVersion"
@@ -101,7 +103,7 @@ dependencies {
     implementation "org.apache.hadoop:hadoop-common:$hadoopVersion"
     implementation "org.apache.hadoop:hadoop-mapreduce-client-core:$hadoopVersion"
 
-    implementation "org.apache.parquet:parquet-avro:1.15.1"
+    implementation "org.apache.parquet:parquet-avro:1.17.1"
 
     testImplementation "junit:junit:4.13.2"
 
@@ -148,7 +150,7 @@ publishing {
         create('maven', MavenPublication)  {
             groupId = "io.github.shin1103"
             artifactId = "embulk-output-iceberg"
-            version = "0.2.0"
+            version = "0.3.0"
 
             from ((SoftwareComponent) components.java)
             // javadocJar and sourcesJar are added by java.withJavadocJar() and java.withSourcesJar() above.
